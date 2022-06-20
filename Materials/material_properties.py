@@ -4,6 +4,9 @@ import numpy as np
 class material_2d:
     # k: conductivity "W/(m.K)", ro: volumetric mass "kg/m3", cp: calorific capacity at constant pressure "J/(kg.K)"
     def __init__(self, k: float, ro: float, cp: float, resolution: (int, int), initial_temp_distribution_func, border_function):
+        if resolution[0] < 2 or resolution[1] < 2:
+            raise Exception("Material Resolution is too low")
+
         self.k = k
         self.ro = ro
         self.cp = cp
