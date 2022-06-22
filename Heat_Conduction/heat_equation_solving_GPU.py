@@ -28,6 +28,7 @@ def solve_heat_2d(material: mp.material_2d, simulation_settings: sp.Simulation_P
     all_outputs_temperatures[0] = material.initialize_temp_array(resolution)
 
     for steps in range(0, number_iterations - 1):
+
         t = steps * time_step
         compute_inside_second_derivative_position[blocks_per_grid, threads_per_block](all_outputs_temperatures[steps],
                                                                                       all_outputs_temperatures[steps + 1], alpha,
