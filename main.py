@@ -32,7 +32,7 @@ def information_on_start(material: mp.material_2d, simulation_profile: sp.Simula
           f'        resolution = {simulation_profile.resolution[0]}x{simulation_profile.resolution[1]} \n'
           f'        dist between 2 pixels = {(int(simulation_profile.distance_consecutive_pixels[0] * 10000)) / 10000}m X \n'
           f'                                {(int(simulation_profile.distance_consecutive_pixels[1] * 10000)) / 10000}m Y \n'
-          f'        step time = {simulation_profile.time_step}s {ca.RED} /!| Choose Low Step Time {ca.END}\n'
+          f'        step time = {simulation_profile.time_step}s {ca.RED + ca.BOLD + ca.NEGATIVE} /!| Choose Low Step Time {ca.END}\n'
           f'        duration = {simulation_profile.stop_time}s \n'
           f'        frames number = {int(simulation_profile.stop_time // simulation_profile.time_step)}')
 
