@@ -30,21 +30,27 @@ def solve_heat_2d(material: mp.material_2d, simulation_settings: sp.Simulation_P
     for steps in range(0, number_iterations - 1):
         t = steps * time_step
         compute_inside_second_derivative_position[blocks_per_grid, threads_per_block](all_outputs_temperatures[steps],
-                                                                                      all_outputs_temperatures[steps + 1], alpha, t,
+                                                                                      all_outputs_temperatures[steps + 1], alpha,
+                                                                                      simulation_settings.distance_consecutive_pixels, t,
                                                                                       time_step)
 
     return all_outputs_temperatures
 
 
 @cuda.jit()
-def compute_inside_second_derivative_position(temperature_array, output_temperature_array, material_alpha, t, time_step):
+def compute_inside_second_derivative_position(temperature_array: np.ndarray, output_temperature_array: np.ndarray, material_alpha: float,
+                                              distance_pixel: (float, float),
+                                              t: float,
+                                              time_step: float):
     # noinspection PyArgumentList
     x, y = cuda.grid(2)
     if 0 < x < temperature_array.shape[0] - 1 and 0 < y < temperature_array.shape[1] - 1:
-        second_der_pos_x = temperature_array[x + 1, y] - 2 * temperature_array[x, y] + temperature_array[x - 1, y]
-        second_der_pos_y = temperature_array[x, y + 1] - 2 * temperature_array[x, y] + temperature_array[x, y - 1]
+        second_der_pos_x = (temperature_array[x + 1, y] - 2 * temperature_array[x, y] + temperature_array[x - 1, y]) / (distance_pixel[
+            0] ** 2)
+        second_der_pos_y = (temperature_array[x, y + 1] - 2 * temperature_array[x, y] + temperature_array[x, y - 1]) / (distance_pixel[
+            1] ** 2)
         output_temperature_array[x, y] = time_step * (second_der_pos_x + second_der_pos_y) * material_alpha + temperature_array[x, y]
-    elif x == 0 or x == temperature_array.shape[0]-1 or y == 0 or y == temperature_array.shape[1]-1:
+    elif x == 0 or x == temperature_array.shape[0] - 1 or y == 0 or y == temperature_array.shape[1] - 1:
         # noinspection PyCallingNonCallable
         output_temperature_array[x, y] = border_function_gpu(x, y, t)
 

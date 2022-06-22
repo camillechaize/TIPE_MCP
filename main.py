@@ -6,10 +6,10 @@ from Simulation import simulation_settings as sp
 
 def main():
     # Create Simulation Profile
-    simulation_settings = sp.Simulation_Profile((200, 200), 0.01, 20)
+    simulation_settings = sp.Simulation_Profile((0.1, 0.1), (500, 500), 0.001, 2)
 
     # Create Material
-    steel = mp.material_2d("Steel", 10, 1, 1, mp.constant_init_temp_func, mp.constant_border_temp_func,
+    steel = mp.material_2d("Copper", 1.17 / 10000, 1, 1, mp.constant_init_temp_func, mp.constant_border_temp_func,
                            mp.constant_border_temp_func_gpu)
 
     information_on_start(steel, simulation_settings)
@@ -18,6 +18,7 @@ def main():
     final_heat = heat_equation_solving_GPU.solve_heat_2d(steel, simulation_settings)
 
     # Show solution
+    plot_image.visualize_heatmap_2d(final_heat[final_heat.shape[0] - 1])
     video_visualize.visualize_heatmap_2d_animation(final_heat, simulation_settings)
 
 
@@ -26,10 +27,13 @@ def information_on_start(material: mp.material_2d, simulation_profile: sp.Simula
           f'    PROPERTIES: \n'
           f'        alpha = {material.alpha} W/(m.K)\n'
           f'    SIMULATION Settings: \n'
+          f'        geometric size = {simulation_profile.size[0]}m x {simulation_profile.size[1]}m \n'
           f'        resolution = {simulation_profile.resolution[0]}x{simulation_profile.resolution[1]} \n'
-          f'        time step = {simulation_profile.time_step}s \n'
-          f'        stop time = {simulation_profile.stop_time}s \n'
-          f'        frames number = {int(simulation_profile.stop_time//simulation_profile.time_step)}')
+          f'        dist between 2 pixels = {(int(simulation_profile.distance_consecutive_pixels[0] * 10000)) / 10000}m X \n'
+          f'                                {(int(simulation_profile.distance_consecutive_pixels[1] * 10000)) / 10000}m Y \n'
+          f'        step time = {simulation_profile.time_step}s /!| Choose Low Step Time\n'
+          f'        duration = {simulation_profile.stop_time}s \n'
+          f'        frames number = {int(simulation_profile.stop_time // simulation_profile.time_step)}')
 
 
 main()
