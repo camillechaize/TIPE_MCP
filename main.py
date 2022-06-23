@@ -1,5 +1,6 @@
 from Heat_Conduction import heat_equation_solving, heat_equation_solving_GPU
 from Visualizer import plot_image, video_visualize
+from Visualizer.Colorize import color_heatmap
 from Materials import material_properties as mp
 from Simulation import simulation_settings as sp
 from w_utils import console_appearance as ca
@@ -7,7 +8,7 @@ from w_utils import console_appearance as ca
 
 def main():
     # Create Simulation Profile
-    simulation_settings = sp.Simulation_Profile((0.1, 0.1), (500, 500), 0.001, 2)
+    simulation_settings = sp.Simulation_Profile((0.5, 0.5), (200, 200), 0.001, 2, (273.15, 373.15))
 
     # Create Material
     steel = mp.material_2d("Copper", 1.17 / 10000, 1, 1, mp.constant_init_temp_func, mp.constant_border_temp_func,

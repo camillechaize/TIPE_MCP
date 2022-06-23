@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 from numba import cuda
 
@@ -35,4 +37,8 @@ def constant_border_temp_func(x, y, t):
 
 @cuda.jit(device=True)
 def constant_border_temp_func_gpu(x, y, t):
+    if x == 0:
+        return math.sin(3*y/200)*400
+    if y == 0:
+        return math.sin(3*x/200)*400
     return 273.15
