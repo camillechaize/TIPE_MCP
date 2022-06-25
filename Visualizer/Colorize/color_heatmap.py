@@ -1,5 +1,4 @@
 import math
-import colorsys
 import numpy as np
 from numba import cuda
 from w_utils import project_settings as ps
@@ -8,10 +7,9 @@ from Simulation import simulation_settings as sp
 
 def colorize_multiple_heatmaps(temperatures_array: np.ndarray, simulation_settings: sp.Simulation_Profile) -> np.ndarray:
     # Get Settings
-    (min_temp, max_temp) = simulation_settings.temp_min_max
     resolution = simulation_settings.resolution
     number_iterations = temperatures_array.shape[0]
-    min_temp_color_hsl, max_temp_color_hsl = rgb_to_hsl(ps.min_temp_color), rgb_to_hsl(ps.max_temp_color)
+    ex_temp_color = np.array([rgb_to_hsl(ps.ex_temp_color[n]) for n in range(len(ps.ex_temp_color))])
 
     # Grid computation
     threads_per_block = (32, 32)
@@ -22,37 +20,41 @@ def colorize_multiple_heatmaps(temperatures_array: np.ndarray, simulation_settin
     # All outputs
     all_outputs_heatmaps = np.empty(shape=(number_iterations, resolution[0], resolution[1], 3))
 
-    print(min_temp, min_temp_color_hsl)
-    print(max_temp, max_temp_color_hsl)
-
     for i in range(0, number_iterations):
-        color_heatmap[blocks_per_grid, threads_per_block](temperatures_array[i], all_outputs_heatmaps[i], (min_temp, max_temp),
-                                                          (min_temp_color_hsl, max_temp_color_hsl))
+        color_heatmap[blocks_per_grid, threads_per_block](temperatures_array[i], all_outputs_heatmaps[i], ps.ex_temp,
+                                                          ex_temp_color)
         all_outputs_heatmaps[i] *= 255
 
     return all_outputs_heatmaps
 
 
 @cuda.jit()
-def color_heatmap(temperature_array: np.ndarray, output_hm: np.ndarray, ex_temp: (float, float),
-                  ex_temp_colors: ((float, float, float), (float, float, float))):
+def color_heatmap(temperature_array: np.ndarray, output_hm: np.ndarray, ex_temp, ex_temp_colors):
     # noinspection PyArgumentList
     x, y = cuda.grid(2)
 
     if x < temperature_array.shape[0] and y < temperature_array.shape[1]:
-        # Get repartition to extreme temperatures
-        t = (temperature_array[x, y] - ex_temp[0]) / (ex_temp[1] - ex_temp[0])
-        # Clamp
-        if t > 1:
-            t = 1
-        if t < 0:
-            t = 0
-        # "Lerp" new color
-        h = (1 - t) * ex_temp_colors[0][0] + t * ex_temp_colors[1][0]
-        s = (1 - t) * ex_temp_colors[0][1] + t * ex_temp_colors[1][1]
-        l = (1 - t) * ex_temp_colors[0][2] + t * ex_temp_colors[1][2]
-        # Convert and assign color
-        output_hm[x, y] = hsl_to_rgb(h, s, l)
+        # Calculate the space between two colored temperatures relative to the other ones
+        num_ex_temp = len(ex_temp)
+        for i in range(num_ex_temp - 1):
+            # Get repartition to extreme temperatures
+            t = (temperature_array[x, y] - ex_temp[i]) / (ex_temp[i + 1] - ex_temp[i])
+
+            # Check border cases: temperature of pixel is outside the user-defined range
+            if i == 0 and t < 0:
+                t = 0
+            elif i == num_ex_temp - 2 and t > 1:
+                t = 1
+
+            # If temperature is inside space: color pixel
+            if 0 <= t <= 1:
+                # "Lerp" new color
+                h = (1 - t) * ex_temp_colors[i][0] + t * ex_temp_colors[i + 1][0]
+                s = (1 - t) * ex_temp_colors[i][1] + t * ex_temp_colors[i + 1][1]
+                lum = (1 - t) * ex_temp_colors[i][2] + t * ex_temp_colors[i + 1][2]
+                # Convert and assign color
+                output_hm[x, y] = hsl_to_rgb(h, s, lum)
+                break
 
 
 def rgb_to_hsl(rgb):
@@ -61,14 +63,14 @@ def rgb_to_hsl(rgb):
     b = float(rgb[2])
     high = max(r, g, b)
     low = min(r, g, b)
-    h, s, l = ((high + low) / 2,) * 3
+    h, s, lum = ((high + low) / 2,) * 3
 
     if high == low:
         h = 0.0
         s = 0.0
     else:
         d = high - low
-        s = d / (2 - high - low) if l > 0.5 else d / (high + low)
+        s = d / (2 - high - low) if lum > 0.5 else d / (high + low)
         h = {
             r: (g - b) / d + (6 if g < b else 0),
             g: (b - r) / d + 2,
@@ -76,24 +78,27 @@ def rgb_to_hsl(rgb):
         }[high]
         h /= 6
 
-    return h, s, l
+    return h, s, lum
 
 
 @cuda.jit(device=True)
-def hsl_to_rgb(h, s, l):
-    def hue_to_rgb(p, q, t):
+def hsl_to_rgb(h, s, lum):
+    def hue_to_rgb(p_1, q_1, t):
         t += 1 if t < 0 else 0
         t -= 1 if t > 1 else 0
-        if t < 1 / 6: return p + (q - p) * 6 * t
-        if t < 1 / 2: return q
-        if t < 2 / 3: p + (q - p) * (2 / 3 - t) * 6
-        return p
+        if t < 1 / 6:
+            return p_1 + (q_1 - p_1) * 6 * t
+        if t < 1 / 2:
+            return q_1
+        if t < 2 / 3:
+            p_1 + (q_1 - p_1) * (2 / 3 - t) * 6
+        return p_1
 
     if s == 0:
-        r, g, b = l, l, l
+        r, g, b = lum, lum, lum
     else:
-        q = l * (1 + s) if l < 0.5 else l + s - l * s
-        p = 2 * l - q
+        q = lum * (1 + s) if lum < 0.5 else lum + s - lum * s
+        p = 2 * lum - q
         r = hue_to_rgb(p, q, h + 1 / 3)
         g = hue_to_rgb(p, q, h)
         b = hue_to_rgb(p, q, h - 1 / 3)

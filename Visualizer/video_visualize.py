@@ -1,4 +1,3 @@
-import os
 import numpy as np
 import skvideo.io
 from Simulation import simulation_settings as sp
