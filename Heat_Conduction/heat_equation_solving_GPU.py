@@ -15,7 +15,7 @@ def solve_heat_2d(material: mp.material_2d, simulation_settings: sp.Simulation_P
     alpha = material.alpha
     global border_function_gpu
     border_function_gpu = material.border_function_gpu
-    number_iterations = int(stop_time // time_step)
+    number_iterations = simulation_settings.simulation_frames_number
 
     # Grid computation
     threads_per_block = (32, 32)
@@ -24,16 +24,20 @@ def solve_heat_2d(material: mp.material_2d, simulation_settings: sp.Simulation_P
     blocks_per_grid = (blocks_per_grid_x, blocks_per_grid_y)
 
     # All outputs
-    all_outputs_temperatures = np.empty(shape=(number_iterations, resolution[0], resolution[1]))
-    all_outputs_temperatures[0] = material.initialize_temp_array(resolution)
+    all_outputs_temperatures = np.empty(shape=(simulation_settings.output_frames_number, resolution[0], resolution[1]))
+    temporary_last_temperature = material.initialize_temp_array(resolution)
+    temporary_next_temperature = np.empty(shape=(resolution[0], resolution[1]))
 
     for steps in range(0, number_iterations - 1):
-
         t = steps * time_step
-        compute_inside_second_derivative_position[blocks_per_grid, threads_per_block](all_outputs_temperatures[steps],
-                                                                                      all_outputs_temperatures[steps + 1], alpha,
+        compute_inside_second_derivative_position[blocks_per_grid, threads_per_block](temporary_last_temperature,
+                                                                                      temporary_next_temperature, alpha,
                                                                                       simulation_settings.distance_consecutive_pixels, t,
                                                                                       time_step)
+
+        all_outputs_temperatures[(steps // simulation_settings.number_sim_images_for_output_image)] = temporary_next_temperature
+
+        temporary_last_temperature = temporary_next_temperature
 
     return all_outputs_temperatures
 
@@ -47,9 +51,9 @@ def compute_inside_second_derivative_position(temperature_array: np.ndarray, out
     x, y = cuda.grid(2)
     if 0 < x < temperature_array.shape[0] - 1 and 0 < y < temperature_array.shape[1] - 1:
         second_der_pos_x = (temperature_array[x + 1, y] - 2 * temperature_array[x, y] + temperature_array[x - 1, y]) / (distance_pixel[
-            0] ** 2)
+                                                                                                                            0] ** 2)
         second_der_pos_y = (temperature_array[x, y + 1] - 2 * temperature_array[x, y] + temperature_array[x, y - 1]) / (distance_pixel[
-            1] ** 2)
+                                                                                                                            1] ** 2)
         output_temperature_array[x, y] = time_step * (second_der_pos_x + second_der_pos_y) * material_alpha + temperature_array[x, y]
     elif x == 0 or x == temperature_array.shape[0] - 1 or y == 0 or y == temperature_array.shape[1] - 1:
         # noinspection PyCallingNonCallable

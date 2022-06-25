@@ -4,11 +4,12 @@ from Visualizer.Colorize import color_heatmap
 from Materials import material_properties as mp
 from Simulation import simulation_settings as sp
 from w_utils import console_appearance as ca
+from w_utils import project_settings as ps
 
 
 def main():
     # Create Simulation Profile
-    simulation_settings = sp.Simulation_Profile((0.5, 0.5), (200, 200), 0.001, 2, (273.15, 373.15))
+    simulation_settings = sp.Simulation_Profile((0.5, 0.5), (500, 500), 0.001, 2, (273.15, 373.15))
 
     # Create Material
     steel = mp.material_2d("Copper", 1.17 / 10000, 1, 1, mp.constant_init_temp_func, mp.constant_border_temp_func,
@@ -35,7 +36,10 @@ def information_on_start(material: mp.material_2d, simulation_profile: sp.Simula
           f'                                {(int(simulation_profile.distance_consecutive_pixels[1] * 10000)) / 10000}m Y \n'
           f'        step time = {simulation_profile.time_step}s {ca.RED + ca.BOLD + ca.NEGATIVE} /!| Choose Low Step Time {ca.END}\n'
           f'        duration = {simulation_profile.stop_time}s \n'
-          f'        frames number = {int(simulation_profile.stop_time // simulation_profile.time_step)}')
+          f'        frames number simulation = {simulation_profile.simulation_frames_number} \n'
+          f'        frames number video = {simulation_profile.output_frames_number} \n'
+          f'        fps_output = {ps.frames_per_second} \n'
+          f'        ratio simulation real images = {simulation_profile.number_sim_images_for_output_image}')
 
 
 main()
